@@ -1,0 +1,110 @@
+/* ==========================================
+   STAT CARD
+   ========================================== */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 26px 22px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-glass);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  box-shadow: var(--shadow-md);
+  cursor: default;
+  transition: transform var(--ease-bounce), box-shadow var(--ease), border-color var(--ease);
+}
+
+/* Subtle shimmer line at top */
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  border-radius: 99px 99px 0 0;
+  opacity: 0.6;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+
+/* ── Total ── */
+.stat-card--total { border-color: rgba(124,111,255,0.22); }
+.stat-card--total::before { background: linear-gradient(90deg,transparent,rgba(124,111,255,0.6),transparent); }
+.stat-card--total:hover {
+  border-color: rgba(124,111,255,0.5);
+  box-shadow: var(--shadow-lg), 0 0 30px rgba(124,111,255,0.2);
+}
+.stat-card--total .stat-card__icon-bg {
+  background: rgba(124,111,255,0.14);
+  border-color: rgba(124,111,255,0.25);
+}
+.stat-card--total .stat-card__num {
+  background: var(--grad-brand);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* ── Low ── */
+.stat-card--low { border-color: rgba(251,191,36,0.20); }
+.stat-card--low::before { background: linear-gradient(90deg,transparent,rgba(251,191,36,0.55),transparent); }
+.stat-card--low:hover {
+  border-color: rgba(251,191,36,0.48);
+  box-shadow: var(--shadow-lg), 0 0 30px rgba(251,191,36,0.14);
+}
+.stat-card--low .stat-card__icon-bg {
+  background: rgba(251,191,36,0.11);
+  border-color: rgba(251,191,36,0.22);
+}
+.stat-card--low .stat-card__num {
+  background: var(--grad-amber);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* ── Empty ── */
+.stat-card--empty { border-color: rgba(248,113,113,0.20); }
+.stat-card--empty::before { background: linear-gradient(90deg,transparent,rgba(248,113,113,0.5),transparent); }
+.stat-card--empty:hover {
+  border-color: rgba(248,113,113,0.48);
+  box-shadow: var(--shadow-lg), 0 0 30px rgba(248,113,113,0.14);
+}
+.stat-card--empty .stat-card__icon-bg {
+  background: rgba(248,113,113,0.10);
+  border-color: rgba(248,113,113,0.22);
+}
+.stat-card--empty .stat-card__num {
+  background: var(--grad-red);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+
+/* ── Icon ── */
+.stat-card__icon-bg {
+  width: 52px; height: 52px;
+  border-radius: var(--r-md);
+  border: 1px solid;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: transform var(--ease-bounce);
+}
+.stat-card:hover .stat-card__icon-bg { transform: scale(1.12) rotate(-6deg); }
+
+.stat-card__icon { font-size: 1.5rem; line-height: 1; }
+
+/* ── Text ── */
+.stat-card__body {
+  display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+
+.stat-card__label {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.stat-card__num {
+  font-size: 2.2rem; font-weight: 900;
+  line-height: 1; letter-spacing: -0.04em;
+}

@@ -1,0 +1,84 @@
+/* ==========================================
+   ADD ITEM FORM
+   ========================================== */
+.add-form {
+  padding: 28px 26px;
+}
+
+.add-form__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.add-form__icon { font-size: 1.15rem; }
+
+.add-form__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.add-form__divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0 20px;
+}
+
+.add-form__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 14px;
+  align-items: end;
+}
+
+@media (max-width: 600px) {
+  .add-form__fields { grid-template-columns: 1fr; }
+}
+
+/* ── Field Group ── */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.field-input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text-1);
+  font-size: 14px;
+  padding: 11px 14px;
+  outline: none;
+  transition: border-color var(--ease), background var(--ease), box-shadow var(--ease);
+  caret-color: var(--brand-light);
+}
+
+.field-input::placeholder { color: var(--text-3); }
+
+.field-input:hover {
+  border-color: var(--border-strong);
+  background: rgba(255,255,255,0.065);
+}
+
+.field-input:focus {
+  border-color: var(--border-focus);
+  background: rgba(124,111,255,0.06);
+  box-shadow: 0 0 0 3px rgba(124,111,255,0.16);
+}
+
+/* ── Number input arrows ── */
+.field-input[type="number"]::-webkit-inner-spin-button,
+.field-input[type="number"]::-webkit-outer-spin-button { opacity: 0.4; }
