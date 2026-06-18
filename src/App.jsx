@@ -3,10 +3,13 @@ import StatCard from "./components/StatCard";
 import InventoryItem from "./components/InventoryItem";
 import HealthCard from "./components/HealthCard";
 import useLocalStorage from "./hooks/useLocalStorage";
+import { useState } from "react";
+import RestockModal from "./components/RestockModal";
 import "./App.css";
 
 function App() {
   const [items, setItems] = useLocalStorage("fridge-items", []);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   /* ── Business Logic (unchanged) ── */
   const addItem = (name, quantity) => {
@@ -24,24 +27,33 @@ function App() {
     setItems(updatedItems);
   };
 
-  const restockItem = (id) => {
-    const quantity = prompt("Enter new quantity");
-    if (!quantity) return;
+  const openRestockModal = (id) => {
+    const item = items.find(
+      (i) => i.id === id
+    );
+
+    setSelectedItem(item);
+  };
+  const confirmRestock = (id, quantity) => {
     const updatedItems = items.map((item) => {
-      if (item.id === id) return { ...item, quantity: Number(quantity) };
+      if (item.id === id) {
+        return { ...item, quantity };
+      }
       return item;
     });
+
     setItems(updatedItems);
+    setSelectedItem(null);
   };
 
   /* ── Derived stats ── */
-  const lowStock   = items.filter((item) => item.quantity === 1).length;
+  const lowStock = items.filter((item) => item.quantity === 1).length;
   const emptyItems = items.filter((item) => item.quantity === 0).length;
 
   /* ── Grouped inventory ── */
   const healthyList = items.filter((item) => item.quantity > 1);
-  const lowList     = items.filter((item) => item.quantity === 1);
-  const emptyList   = items.filter((item) => item.quantity === 0);
+  const lowList = items.filter((item) => item.quantity === 1);
+  const emptyList = items.filter((item) => item.quantity === 0);
 
   /* ── Inventory Health (same logic as HealthCard) ── */
   const healthPct = items.length === 0
@@ -49,21 +61,21 @@ function App() {
     : Math.round((healthyList.length / items.length) * 100);
 
   /* ── System Status (derived purely for display) ── */
-  let sysClass  = "sys-status--healthy";
-  let sysLabel  = "🟢 Inventory Healthy";
-  let heroDot   = "#34d399";
+  let sysClass = "sys-status--healthy";
+  let sysLabel = "🟢 Inventory Healthy";
+  let heroDot = "#34d399";
   let heroLabel = "All good · " + healthPct + "% healthy";
 
   if (items.length > 0 && healthPct < 75) {
-    sysClass  = "sys-status--warning";
-    sysLabel  = "🟡 Attention Needed";
-    heroDot   = "#fbbf24";
+    sysClass = "sys-status--warning";
+    sysLabel = "🟡 Attention Needed";
+    heroDot = "#fbbf24";
     heroLabel = "Some items low · " + healthPct + "% healthy";
   }
   if (items.length > 0 && healthPct < 40) {
-    sysClass  = "sys-status--critical";
-    sysLabel  = "🔴 Critical Restock Required";
-    heroDot   = "#f87171";
+    sysClass = "sys-status--critical";
+    sysLabel = "🔴 Critical Restock Required";
+    heroDot = "#f87171";
     heroLabel = "Restock needed · " + healthPct + "% healthy";
   }
 
@@ -93,12 +105,12 @@ function App() {
           </div>
 
           <h1 className="hero__title">
-            🧊 <span className="hero__wordmark">FridgeTruth</span>
+            🧊 <span className="hero__wordmark">ShelfSense</span>
           </h1>
 
           <p className="hero__sub">Track what's really left.</p>
           <p className="hero__desc">
-            A real-time fridge dashboard that keeps you one step ahead
+            A real-time pantry dashboard that keeps you one step ahead
             of running out — always.
           </p>
 
@@ -120,8 +132,8 @@ function App() {
         {/* ── Stats ── */}
         <section className="stats-grid" aria-label="Inventory statistics">
           <StatCard title="Total Items" value={items.length} icon="📦" variant="total" />
-          <StatCard title="Low Stock"   value={lowStock}     icon="⚠️" variant="low"   />
-          <StatCard title="Empty Items" value={emptyItems}   icon="🚫" variant="empty" />
+          <StatCard title="Low Stock" value={lowStock} icon="⚠️" variant="low" />
+          <StatCard title="Empty Items" value={emptyItems} icon="🚫" variant="empty" />
         </section>
 
         {/* ── Dashboard 2-col ── */}
@@ -137,7 +149,7 @@ function App() {
             {items.length === 0 && (
               <div className="empty-state glass">
                 <div className="empty-state__emoji">🫙</div>
-                <h3 className="empty-state__title">Your fridge is empty</h3>
+                <h3 className="empty-state__title">Your pantry is empty</h3>
                 <p className="empty-state__desc">
                   Add your first grocery item above to start tracking.
                 </p>
@@ -165,7 +177,7 @@ function App() {
                           <InventoryItem
                             item={item}
                             onConsume={consumeItem}
-                            onRestock={restockItem}
+                            onRestock={openRestockModal}
                           />
                         </div>
                       ))
@@ -196,7 +208,7 @@ function App() {
                           <InventoryItem
                             item={item}
                             onConsume={consumeItem}
-                            onRestock={restockItem}
+                            onRestock={openRestockModal}
                           />
                         </div>
                       ))
@@ -227,7 +239,7 @@ function App() {
                           <InventoryItem
                             item={item}
                             onConsume={consumeItem}
-                            onRestock={restockItem}
+                            onRestock={openRestockModal}
                           />
                         </div>
                       ))
@@ -245,9 +257,17 @@ function App() {
 
         </div>
       </main>
+      {selectedItem && (
+        <RestockModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          onConfirm={confirmRestock}
+        />
+      )}
+
 
       <footer className="footer">
-        <p>FridgeTruth · Smart pantry management · Built for real kitchens</p>
+        <p>ShelfSense · Smart pantry management · Built for real kitchens</p>
       </footer>
     </div>
   );
