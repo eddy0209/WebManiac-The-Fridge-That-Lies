@@ -3,23 +3,119 @@ import StatCard from "./components/StatCard";
 import InventoryItem from "./components/InventoryItem";
 import HealthCard from "./components/HealthCard";
 import useLocalStorage from "./hooks/useLocalStorage";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import RestockModal from "./components/RestockModal";
+import ActivityFeed from "./components/ActivityFeed";
+import HouseholdMembers from "./components/HouseholdMembers";
+import { supabase } from "./lib/supabase";
+import Login from "./pages/Login";
 import "./App.css";
 
 function App() {
   const [items, setItems] = useLocalStorage("fridge-items", []);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [activities, setActivities] = useLocalStorage("activities", []);
+  const [session, setSession] = useState(null);
+
+  /* ── Sync to Supabase ── */
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, newSession) => {
+        setSession(newSession);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function upsertItem(item) {
+    const { error } = await supabase
+      .from("inventory")
+      .upsert(item);
+
+    if (error) {
+      console.error("Error upserting:", error);
+    }
+  }
+
+  /* ── Sync Inventory to Supabase ── */
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    async function syncInventory() {
+
+      items.forEach(upsertItem);
+
+      const localIds = items.map(i => i.id);
+
+      const { data: remoteItems } = await supabase
+        .from("inventory")
+        .select("id")
+        .eq("user_id", session.user.id);
+
+      if (!remoteItems) return;
+
+      const remoteIds = remoteItems.map(r => r.id);
+
+      const toDelete =
+        remoteIds.filter(
+          id => !localIds.includes(id)
+        );
+
+      for (const id of toDelete) {
+        await supabase
+          .from("inventory")
+          .delete()
+          .eq("id", id);
+      }
+    }
+
+    syncInventory();
+
+  }, [items, session]);
+
+  const addActivity = (message) => {
+    const activity = {
+      id: Date.now(),
+      message,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+
+    setActivities((prev) => [
+      activity,
+      ...prev,
+    ].slice(0, 15));
+  };
 
   /* ── Business Logic (unchanged) ── */
   const addItem = (name, quantity) => {
     const newItem = { id: Date.now(), name, quantity };
     setItems([...items, newItem]);
+    addActivity(
+      `🛒 Added ${name} (${quantity})`
+    );
   };
 
   const consumeItem = (id) => {
+    const currentItem = items.find(i => i.id === id);
     const updatedItems = items.map((item) => {
       if (item.id === id && item.quantity > 0) {
+        if (item.quantity === 1) {
+          addActivity(
+            `🚫 ${currentItem.name} became empty`
+          );
+        }
+        if (item.quantity === 2) {
+          addActivity(
+            `⚠ ${currentItem.name} is low stock`
+          );
+        }
         return { ...item, quantity: item.quantity - 1 };
       }
       return item;
@@ -35,8 +131,12 @@ function App() {
     setSelectedItem(item);
   };
   const confirmRestock = (id, quantity) => {
+    const currentItem = items.find(i => i.id === id);
     const updatedItems = items.map((item) => {
       if (item.id === id) {
+        addActivity(
+          `🔄 Restocked ${currentItem.name} (${quantity})`
+        );
         return { ...item, quantity };
       }
       return item;
@@ -78,7 +178,9 @@ function App() {
     heroDot = "#f87171";
     heroLabel = "Restock needed · " + healthPct + "% healthy";
   }
-
+  if (!session) {
+    return <Login />;
+  }
   return (
     <div className="app-root">
 
@@ -113,6 +215,19 @@ function App() {
             A real-time pantry dashboard that keeps you one step ahead
             of running out — always.
           </p>
+          {session && (
+            <div className="hero__user">
+              Welcome, {session.user.email}
+            </div>
+          )}
+          {session && (
+            <button
+              className="hero__logout"
+              onClick={() => supabase.auth.signOut()}
+            >
+              Logout
+            </button>
+          )}
 
           {items.length > 0 && (
             <div className="hero__health-pill">
@@ -253,8 +368,9 @@ function App() {
           {/* RIGHT: Health Card (sticky aside) */}
           <div className="dashboard-aside">
             <HealthCard items={items} />
+            <ActivityFeed activities={activities} />
+            <HouseholdMembers />
           </div>
-
         </div>
       </main>
       {selectedItem && (
@@ -264,7 +380,6 @@ function App() {
           onConfirm={confirmRestock}
         />
       )}
-
 
       <footer className="footer">
         <p>ShelfSense · Smart pantry management · Built for real kitchens</p>

@@ -1,14 +1,31 @@
 import "./InventoryItem.css";
+import { motion } from "framer-motion";
 
 export default function InventoryItem({ item, onConsume, onRestock }) {
   const isEmpty = item.quantity === 0;
-  const isLow   = item.quantity === 1;
+  const isLow = item.quantity === 1;
 
   const barColor = isEmpty ? "var(--red)" : isLow ? "var(--amber)" : "var(--green)";
   const barWidth = `${Math.min(item.quantity * 10, 100)}%`;
 
   return (
-    <div className="inv-item">
+    <motion.div
+      className="inv-item"
+      initial={{
+        opacity: 0,
+        y: 20
+      }}
+      animate={{
+        opacity: 1,
+        y: 0
+      }}
+      transition={{
+        duration: 0.3
+      }}
+      whileHover={{
+        y: -4
+      }}
+    >
       <div className="inv-item__info">
         <div className="inv-item__top">
           <h3 className="inv-item__name">{item.name}</h3>
@@ -48,6 +65,6 @@ export default function InventoryItem({ item, onConsume, onRestock }) {
           ↺ Restock
         </button>
       </div>
-    </div>
+    </motion.div>
   );
 }
