@@ -9,13 +9,15 @@ import ActivityFeed from "./components/ActivityFeed";
 import HouseholdMembers from "./components/HouseholdMembers";
 import { supabase } from "./lib/supabase";
 import Login from "./pages/Login";
+import { ensureHousehold } from "./lib/household";
 import "./App.css";
 
 function App() {
   const [items, setItems] = useLocalStorage("fridge-items", []);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [activities, setActivities] = useLocalStorage("activities", []);
+  const [activities, setActivities] = useState([]);
   const [session, setSession] = useState(null);
+  const [householdId, setHouseholdId] = useState(null);
 
   /* ── Sync to Supabase ── */
   useEffect(() => {
@@ -35,54 +37,94 @@ function App() {
   }, []);
 
   async function upsertItem(item) {
+
+    const inventoryItem = {
+      ...item,
+      household_id: householdId,
+      created_by: session.user.id,
+    };
+
     const { error } = await supabase
       .from("inventory")
-      .upsert(item);
+      .upsert(inventoryItem);
 
     if (error) {
-      console.error("Error upserting:", error);
+      console.error(error);
     }
   }
 
   /* ── Sync Inventory to Supabase ── */
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (!householdId || !session?.user) return;
+
+    console.log("SYNC STARTED");
+    console.log("Household:", householdId);
+    console.log("Items:", items);
 
     async function syncInventory() {
+      for (const item of items) {
 
-      items.forEach(upsertItem);
+        console.log("Syncing item:", item);
 
-      const localIds = items.map(i => i.id);
-
-      const { data: remoteItems } = await supabase
-        .from("inventory")
-        .select("id")
-        .eq("user_id", session.user.id);
-
-      if (!remoteItems) return;
-
-      const remoteIds = remoteItems.map(r => r.id);
-
-      const toDelete =
-        remoteIds.filter(
-          id => !localIds.includes(id)
-        );
-
-      for (const id of toDelete) {
-        await supabase
+        const { data, error } = await supabase
           .from("inventory")
-          .delete()
-          .eq("id", id);
+          .upsert({
+            id: item.id,
+            household_id: householdId,
+            name: item.name,
+            quantity: item.quantity,
+            created_by: session.user.id
+          })
+          .select();
+
+        console.log("Result:", data);
+        console.log("Error:", error);
       }
     }
 
     syncInventory();
 
-  }, [items, session]);
+  }, [items, householdId, session]);
+
+  /* ── Load Inventory From Supabase ── */
+  useEffect(() => {
+    if (!householdId) return;
+
+    async function loadInventory() {
+      const { data, error } = await supabase
+        .from("inventory")
+        .select("*")
+        .eq("household_id", householdId);
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      setItems(data || []);
+    }
+
+    loadInventory();
+  }, [householdId]);
+
+  // Household Effect
+  useEffect(() => {
+    if (!session?.user) return;
+
+    ensureHousehold(session.user)
+      .then((householdId) => {
+        setHouseholdId(householdId);
+        console.log("Household ready:", householdId);
+      })
+      .catch((err) => {
+        console.error("Household creation failed:", err);
+      });
+
+  }, [session]);
 
   const addActivity = (message) => {
     const activity = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       message,
       timestamp: new Date().toLocaleTimeString(),
     };
@@ -93,33 +135,67 @@ function App() {
     ].slice(0, 15));
   };
 
+  async function saveActivity(action, itemName) {
+
+    if (!householdId || !session?.user) return;
+
+    const { error } = await supabase
+      .from("activities")
+      .insert({
+        household_id: householdId,
+        user_id: session.user.id,
+        action,
+        item_name: itemName
+      });
+
+    if (error) {
+      console.error(error);
+    }
+  }
+
   /* ── Business Logic (unchanged) ── */
   const addItem = (name, quantity) => {
-    const newItem = { id: Date.now(), name, quantity };
+    const newItem = { id: crypto.randomUUID(), name, quantity };
     setItems([...items, newItem]);
     addActivity(
       `🛒 Added ${name} (${quantity})`
+    );
+    saveActivity(
+      "added",
+      name
     );
   };
 
   const consumeItem = (id) => {
     const currentItem = items.find(i => i.id === id);
+
     const updatedItems = items.map((item) => {
       if (item.id === id && item.quantity > 0) {
+
         if (item.quantity === 1) {
           addActivity(
             `🚫 ${currentItem.name} became empty`
           );
         }
+
         if (item.quantity === 2) {
           addActivity(
             `⚠ ${currentItem.name} is low stock`
           );
         }
-        return { ...item, quantity: item.quantity - 1 };
+
+        return {
+          ...item,
+          quantity: item.quantity - 1
+        };
       }
+      saveActivity(
+        "consumed",
+        currentItem.name
+      );
       return item;
     });
+
     setItems(updatedItems);
   };
 
@@ -132,13 +208,24 @@ function App() {
   };
   const confirmRestock = (id, quantity) => {
     const currentItem = items.find(i => i.id === id);
+
     const updatedItems = items.map((item) => {
       if (item.id === id) {
+
         addActivity(
           `🔄 Restocked ${currentItem.name} (${quantity})`
         );
-        return { ...item, quantity };
+
+        return {
+          ...item,
+          quantity: item.quantity + Number(quantity)
+        };
       }
+      saveActivity(
+        "restocked",
+        currentItem.name
+      );
+
       return item;
     });
 
@@ -162,7 +249,7 @@ function App() {
 
   /* ── System Status (derived purely for display) ── */
   let sysClass = "sys-status--healthy";
-  let sysLabel = "🟢 Inventory Healthy";
+  let sysLabel = "🟢 Inventory Full";
   let heroDot = "#34d399";
   let heroLabel = "All good · " + healthPct + "% healthy";
 
@@ -188,7 +275,7 @@ function App() {
       <div className={`sys-status ${sysClass}`} role="status" aria-live="polite">
         <span className="sys-status__indicator" />
         <div className="sys-status__text">
-          <span className="sys-status__label">System Status</span>
+          <span className="sys-status__label">Pantry Status</span>
           <span className="sys-status__value">{sysLabel}</span>
         </div>
       </div>
